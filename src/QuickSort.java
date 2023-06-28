@@ -1,10 +1,12 @@
-public class QuickSort extends Thread {
+import java.util.concurrent.RecursiveAction;
+
+public class QuickSort extends RecursiveAction {
     private static final int SLEEP_DURATION = 10; // in ms
 
-    private int[] arr;
-    private int lo;
-    private int hi;
-    private Object lock;
+    private final int[] arr;
+    private final int lo;
+    private final int hi;
+    private final Object lock;
 
     /**
      * Creates a thread based quick sort routine to sort a range of a provided array
@@ -20,7 +22,8 @@ public class QuickSort extends Thread {
         this.lock = lock;
     }
 
-    public void run() {
+    @Override
+    protected void compute() {
         if (hi - lo <=  1) return;
 
         // index of the end of the small section of array
@@ -35,35 +38,32 @@ public class QuickSort extends Thread {
                 // small section is one element larger
                 i++;
                 // swap elements at i, j
-                int temp = arr[i];
-                arr[i] = arr[j];
-                arr[j] = temp;
+                synchronized (lock) {
+                    int temp = arr[i];
+                    arr[i] = arr[j];
+                    arr[j] = temp;
+                }
             }
             try {
                 Thread.sleep(SLEEP_DURATION);
             } catch (InterruptedException ex) {
-                System.out.println(ex);
+                System.out.println("Thread sorting range " + lo + " - " + hi + " interrupted");
             }
         }
 
         // move pivot back to the index following the end of the small portion (i + 1)
-        arr[hi - 1] = arr[i + 1];
-        arr[i + 1] = pivot;
+        synchronized (lock) {
+            arr[hi - 1] = arr[i + 1];
+            arr[i + 1] = pivot;
+        }
 
         QuickSort left = new QuickSort(arr, lo, i + 1, lock);
         QuickSort right = new QuickSort(arr, i + 2, hi, lock);
 
-        left.start();
-        right.start();
-
-        try {
-            left.join();
-            right.join();
-        } catch (InterruptedException e) {
-            System.out.println("Thread interrupted while sorting range " + (i + 2) + " " + hi);
-        }
+        left.fork();
+        right.compute();
+        left.join();
     }
-
 
     /**
      * Sorts the given array in ascending order
